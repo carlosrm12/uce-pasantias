@@ -155,7 +155,7 @@ def admin_applications_view():
     return render_template('applications.html', user=current_user)
 
 @app.route('/api/applications', methods=['POST'])
-@login_required # <--- Solo usuarios logueados
+@login_required 
 def apply_opportunity():
     """Registra la postulación del estudiante"""
     data = request.json
@@ -166,10 +166,9 @@ def apply_opportunity():
 
     factory = UCEFactory()
     try:
-        # Usamos el nuevo DAO
         app_dao = factory.get_application_dao()
         
-        # Guardamos el cruce: ID del usuario actual + ID de Mongo
+        # Intentamos crear
         app_id = app_dao.create({
             "user_id": current_user.id,
             "opportunity_id": opp_id,
@@ -177,7 +176,14 @@ def apply_opportunity():
         })
         
         return jsonify({"message": "Postulación exitosa", "ref": app_id}), 201
+
+    except ValueError as e:
+        # CAPTURAMOS EL ERROR DE DUPLICADO AQUÍ
+        # Retornamos 409 (Conflict) con el mensaje que escribimos en el DAO
+        return jsonify({"error": str(e)}), 409 
+
     except Exception as e:
+        # Cualquier otro error inesperado
         return jsonify({"error": str(e)}), 500
     finally:
         factory.close()

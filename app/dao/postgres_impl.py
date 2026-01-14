@@ -109,6 +109,18 @@ class PostgresApplicationDAO(GenericDAO):
         self.session = session
 
     def create(self, data: Dict[str, Any]) -> Any:
+        # 1. Validación de Duplicados
+        # Buscamos si existe una fila con el mismo user_id y opportunity_id
+        existing_app = self.session.query(ApplicationModel).filter_by(
+            user_id=data['user_id'],
+            opportunity_id=data['opportunity_id']
+        ).first()
+
+        if existing_app:
+            # Si existe, lanzamos una excepción controlada para que el Controller la atrape
+            raise ValueError("Ya has enviado una postulación a esta oportunidad.")
+
+        # 2. Si no existe, procedemos a crearla
         app = ApplicationModel(**data)
         self.session.add(app)
         self.session.commit()
