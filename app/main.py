@@ -126,6 +126,34 @@ def register():
             
     return render_template('register.html')
 
+@app.route('/api/applications/all', methods=['GET'])
+@login_required
+def get_applications_list():
+    """Retorna todas las postulaciones (Solo para Admin)"""
+    # Seguridad básica: Si no es admin, prohibido ver
+    if current_user.role != 'admin':
+        return jsonify({"error": "No autorizado"}), 403
+
+    factory = UCEFactory()
+    try:
+        app_dao = factory.get_application_dao()
+        apps = app_dao.get_all()
+        return jsonify(apps), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        factory.close()
+
+@app.route('/admin/applications-view')
+@login_required
+def admin_applications_view():
+    """Renderiza la página HTML de postulaciones"""
+    if current_user.role != 'admin':
+        return redirect(url_for('dashboard'))
+    
+    # Pasamos el usuario para (opcionalmente) mostrar su nombre
+    return render_template('applications.html', user=current_user)
+
 @app.route('/api/applications', methods=['POST'])
 @login_required # <--- Solo usuarios logueados
 def apply_opportunity():
