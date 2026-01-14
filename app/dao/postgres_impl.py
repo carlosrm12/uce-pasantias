@@ -1,9 +1,71 @@
 from typing import Dict, Any, Optional, List  
 from sqlalchemy.orm import Session
-from app.dao.interfaces import StudentDAO, ApplicationDAO
-from app.models.sql import StudentModel, ApplicationModel
-from app.dto.models import StudentDTO, ApplicationDTO
+from app.dao.interfaces import StudentDAO, ApplicationDAO, UserDAO
+from app.models.sql import StudentModel, ApplicationModel, UserModel
+from app.dto.models import StudentDTO, ApplicationDTO, UserDTO
+from werkzeug.security import check_password_hash
 
+class PostgresUserDAO(UserDAO):
+    def __init__(self, session: Session):
+        self.session = session
+
+    def get_by_email(self, email: str) -> Optional[UserDTO]:
+        user = self.session.query(UserModel).filter_by(email=email).first()
+        if not user:
+            return None
+        return self._map_to_dto(user)
+
+    def get(self, id: Any) -> Optional[UserDTO]:
+        user = self.session.query(UserModel).filter_by(id=int(id)).first()
+        if not user:
+            return None
+        return self._map_to_dto(user)
+    
+    def create(self, data: Dict[str, Any]) -> UserDTO:
+        user = UserModel(**data)
+        self.session.add(user)
+        self.session.commit()
+        return self._map_to_dto(user)
+
+    def validate_login(self, email: str, password_plaintext: str) -> Optional[UserDTO]:
+        """Verifica credenciales y retorna el usuario si son válidas"""
+        user = self.session.query(UserModel).filter_by(email=email).first()
+        if not user:
+            return None
+        
+        if check_password_hash(user.password_hash, password_plaintext):
+            return self._map_to_dto(user)
+        return None
+
+    # Helpers requeridos por GenericDAO
+    def get_all(self): return [] # No necesario por ahora
+    def update(self, id, data): pass
+    def delete(self, id): pass
+
+    def _map_to_dto(self, user: UserModel) -> UserDTO:
+        return UserDTO(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            role=user.role
+        )
+
+class PostgresApplicationDAO(GenericDAO):
+    def __init__(self, session: Session):
+        self.session = session
+
+    def create(self, data: Dict[str, Any]) -> Any:
+        # data espera: {'user_id': 1, 'opportunity_id': '65a...'}
+        app = ApplicationModel(**data)
+        self.session.add(app)
+        self.session.commit()
+        return app.id
+
+    # Métodos obligatorios por la interfaz (los dejamos vacíos por ahora)
+    def get(self, id): pass
+    def get_all(self): pass
+    def update(self, id, data): pass
+    def delete(self, id): pass
 
 class PostgresStudentDAO(StudentDAO):
     """

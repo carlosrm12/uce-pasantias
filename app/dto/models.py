@@ -1,6 +1,22 @@
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional
 from datetime import datetime
+from flask_login import UserMixin
+
+@dataclass
+class UserDTO(UserMixin):
+    """
+    DTO que representa al usuario logueado.
+    Hereda de UserMixin para que Flask-Login pueda manejarlo (is_authenticated, etc).
+    """
+    id: int
+    email: str
+    name: str
+    role: str
+    
+    # Flask-Login requiere que el ID sea string
+    def get_id(self):
+        return str(self.id)
 
 @dataclass
 class StudentDTO:

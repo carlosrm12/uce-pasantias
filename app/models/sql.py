@@ -5,6 +5,20 @@ from datetime import datetime
 # Clase base de SQLAlchemy
 Base = declarative_base()
 
+
+class UserModel(Base):
+    """
+    Tabla de Usuarios para Autenticación.
+    Fuente: Sección 3.1 (PostgreSQL para usuarios)
+    """
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(String(200), nullable=False) # Nunca guardamos texto plano
+    name = Column(String(100), nullable=False)
+    role = Column(String(20), nullable=False) # 'admin' o 'student'
+
 class StudentModel(Base):
     """
     Modelo ORM para la tabla 'students'.
@@ -43,3 +57,15 @@ class ApplicationModel(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     student = relationship("StudentModel", back_populates="applications")
+
+class ApplicationModel(Base):
+    """
+    Tabla de Trazabilidad: Vincula un Usuario SQL con una Oportunidad NoSQL.
+    """
+    __tablename__ = 'applications'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False) # Quién aplicó
+    opportunity_id = Column(String(50), nullable=False) # ID de Mongo (string)
+    status = Column(String(20), default='pending') # pending, accepted, rejected
+    created_at = Column(DateTime, default=datetime.utcnow)

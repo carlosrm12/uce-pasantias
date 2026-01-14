@@ -65,6 +65,18 @@ class OpportunityDAO(GenericDAO):
     # Aquí podríamos agregar métodos como search_by_tags(tags)
     pass
 
+class UserDAO(GenericDAO):
+    @abstractmethod
+    def get_by_email(self, email: str) -> Optional[Any]:
+        pass
+
+    @abstractmethod
+    def validate_login(self, email: str, password: str) -> Optional[Any]:
+        """
+        Valida email y contraseña (texto plano).
+        Retorna el UserDTO si es válido, o None si falla.
+        """
+        pass
 
 class ApplicationDAO(GenericDAO):
     """
@@ -94,4 +106,9 @@ class AbstractDAOFactory(ABC):
     @abstractmethod
     def get_application_dao(self) -> ApplicationDAO:
         """Retorna un DAO capaz de manejar solicitudes (PostgreSQL)"""
+        pass
+    
+    @abstractmethod
+    def get_user_dao(self) -> UserDAO:
+        """Retorna un DAO para gestión de usuarios/auth"""
         pass

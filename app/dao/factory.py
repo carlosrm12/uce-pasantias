@@ -1,5 +1,5 @@
-from app.dao.interfaces import AbstractDAOFactory, StudentDAO, OpportunityDAO, ApplicationDAO
-from app.dao.postgres_impl import PostgresStudentDAO, PostgresApplicationDAO
+from app.dao.interfaces import AbstractDAOFactory, StudentDAO, OpportunityDAO, ApplicationDAO, UserDAO
+from app.dao.postgres_impl import PostgresStudentDAO, PostgresApplicationDAO, PostgresUserDAO
 from app.dao.mongo_impl import MongoOpportunityDAO
 from app.db import SessionLocal, get_mongo_db
 
@@ -21,6 +21,13 @@ class UCEFactory(AbstractDAOFactory):
         # 2. Conexión NoSQL (MongoDB)
         self._mongo_db = get_mongo_db()
 
+    def get_user_dao(self) -> UserDAO:
+        """
+        Gestiona usuarios en PostgreSQL (Auth Seguro).
+        Fuente: Sección 3.1
+        """
+        return PostgresUserDAO(self._sql_session)
+
     def get_student_dao(self) -> StudentDAO:
         """
         Inyecta la sesión SQL en el DAO de Estudiantes.
@@ -35,10 +42,8 @@ class UCEFactory(AbstractDAOFactory):
         """
         return MongoOpportunityDAO(self._mongo_db)
 
-    def get_application_dao(self) -> ApplicationDAO:
-        """
-        Inyecta la sesión SQL en el DAO de Solicitudes (Trazabilidad).
-        """
+    def get_application_dao(self):
+        from app.dao.postgres_impl import PostgresApplicationDAO
         return PostgresApplicationDAO(self._sql_session)
 
     def close(self):
