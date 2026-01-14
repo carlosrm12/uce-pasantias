@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional, List  
 from sqlalchemy.orm import Session
-from app.dao.interfaces import StudentDAO, ApplicationDAO, UserDAO
+from app.dao.interfaces import StudentDAO, ApplicationDAO, UserDAO, GenericDAO
 from app.models.sql import StudentModel, ApplicationModel, UserModel
 from app.dto.models import StudentDTO, ApplicationDTO, UserDTO
 from werkzeug.security import check_password_hash
@@ -54,18 +54,30 @@ class PostgresApplicationDAO(GenericDAO):
     def __init__(self, session: Session):
         self.session = session
 
+    # Método 1: Crear (El que usas realmente)
     def create(self, data: Dict[str, Any]) -> Any:
-        # data espera: {'user_id': 1, 'opportunity_id': '65a...'}
         app = ApplicationModel(**data)
         self.session.add(app)
         self.session.commit()
         return app.id
 
-    # Métodos obligatorios por la interfaz (los dejamos vacíos por ahora)
-    def get(self, id): pass
-    def get_all(self): pass
-    def update(self, id, data): pass
-    def delete(self, id): pass
+    # --- MÉTODOS "RELLENO" OBLIGATORIOS (Para que Python no se queje) ---
+    
+    # Método 2: Get por ID (Obligatorio por GenericDAO)
+    def get(self, id: Any) -> Optional[Any]:
+        return None
+
+    # Método 3: Get All (ESTE ES EL QUE TE FALTA)
+    def get_all(self) -> List[Dict[str, Any]]:
+        return []
+
+    # Método 4: Update (Obligatorio)
+    def update(self, id: Any, data: Dict[str, Any]) -> bool:
+        return False
+
+    # Método 5: Delete (Obligatorio)
+    def delete(self, id: Any) -> bool:
+        return False
 
 class PostgresStudentDAO(StudentDAO):
     """
