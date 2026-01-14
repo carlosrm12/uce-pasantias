@@ -1,0 +1,10 @@
+flask==3.0.0
+gunicorn==21.2.0
+# Drivers de Base de Datos (Políglota)
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.23
+pymongo==4.6.0
+# Procesamiento de Datos y Reportes
+pandas==2.1.3
+fpdf==1.7.2
+python-dotenv==1.0.0
