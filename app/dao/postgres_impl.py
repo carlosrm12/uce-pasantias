@@ -1,8 +1,9 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List  
 from sqlalchemy.orm import Session
 from app.dao.interfaces import StudentDAO, ApplicationDAO
 from app.models.sql import StudentModel, ApplicationModel
 from app.dto.models import StudentDTO, ApplicationDTO
+
 
 class PostgresStudentDAO(StudentDAO):
     """
@@ -28,6 +29,24 @@ class PostgresStudentDAO(StudentDAO):
             department=student.department
         )
 
+    def get_all(self) -> List[Dict[str, Any]]:
+        # Consulta masiva optimizada
+        students = self.session.query(StudentModel).all()
+        # Convertimos objetos SQLAlchemy a lista de diccionarios planos
+        return [
+            {
+                "id": s.id,
+                "name": s.name,
+                "email": s.email,
+                "gpa": s.gpa,
+                "department": s.department
+            }
+            for s in students
+        ]
+
+
+
+    
     def get(self, id: Any) -> Optional[StudentDTO]:
         student = self.session.query(StudentModel).filter_by(id=id).first()
         if not student:

@@ -26,6 +26,16 @@ class GenericDAO(ABC):
         pass
 
     @abstractmethod
+    def get_all(self) -> List[Dict[str, Any]]:
+        """
+        Recupera todos los registros como una lista de diccionarios.
+        Optimizado para exportación de datos (Pandas).
+        Fuente: Sección 6.5
+        """
+        pass
+
+        
+    @abstractmethod
     def update(self, id: Any, data: Dict[str, Any]) -> bool:
         """
         Actualiza un registro existente.

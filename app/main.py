@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, request
 from app.db import init_db
 from app.dao.factory import UCEFactory
+from flask import send_file
+from app.reporting.generator import generate_combined_report
 
 app = Flask(__name__)
 
@@ -77,6 +79,16 @@ def test_full_flow():
         return jsonify({"error": str(e)}), 500
     finally:
         factory.close()
+
+
+@app.route('/api/reports/combined', methods=['GET'])
+def get_report():
+    """Genera y descarga el reporte PDF"""
+    try:
+        pdf_path = generate_combined_report()
+        return send_file(pdf_path, as_attachment=True, download_name="reporte_uce.pdf")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     # Esto solo se usa para desarrollo local sin Docker
