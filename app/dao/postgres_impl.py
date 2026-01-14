@@ -156,7 +156,30 @@ class PostgresApplicationDAO(GenericDAO):
         return result
 
     def update(self, id: Any, data: Dict[str, Any]) -> bool:
-        return False
+        # data espera: {"status": "aprobada"}
+        try:
+            # SQLAlchemy hace el UPDATE directo filtrando por ID
+            rows_updated = self.session.query(ApplicationModel).filter_by(id=int(id)).update(data)
+            self.session.commit()
+            return rows_updated > 0
+        except Exception as e:
+            self.session.rollback()
+            return False
 
     def delete(self, id: Any) -> bool:
         return False
+
+    # Agrega esto dentro de PostgresApplicationDAO
+    def get_by_user_id(self, user_id: int) -> List[Dict[str, Any]]:
+        # Filtramos por el ID del usuario actual
+        apps = self.session.query(ApplicationModel).filter_by(user_id=user_id).order_by(ApplicationModel.created_at.desc()).all()
+        
+        result = []
+        for app in apps:
+            result.append({
+                "id": app.id,
+                "opportunity_id": app.opportunity_id,
+                "status": app.status,
+                "created_at": app.created_at.strftime("%Y-%m-%d") # Fecha corta
+            })
+        return result

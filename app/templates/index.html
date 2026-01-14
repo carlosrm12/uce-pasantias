@@ -9,137 +9,130 @@
     <style>
         body { background-color: #f8f9fa; }
         .navbar { box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .card { border: none; shadow: 0 0 15px rgba(0,0,0,0.05); transition: transform 0.2s; }
-        .card:hover { transform: translateY(-5px); }
-        .stat-card { border-left: 4px solid #0d6efd; }
+        .card { border: none; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
+        /* Nuevos estilos para tarjetas de metricas */
+        .metric-card { border-radius: 10px; color: white; }
+        .metric-icon { font-size: 2.5rem; opacity: 0.8; }
+        .bg-gradient-primary { background: linear-gradient(45deg, #4e73df, #224abe); }
+        .bg-gradient-success { background: linear-gradient(45deg, #1cc88a, #13855c); }
+        .bg-gradient-warning { background: linear-gradient(45deg, #f6c23e, #dda20a); }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
         <div class="container">
-            <a class="navbar-brand" href="#">
-                <i class="bi bi-mortarboard-fill"></i> Plataforma UCE
-            </a>
+            <a class="navbar-brand" href="#"><i class="bi bi-mortarboard-fill"></i> Plataforma UCE</a>
             <div class="d-flex text-white align-items-center">
-                <span class="me-3">
-                    Hola, <strong>{{ user.name }}</strong> 
-                    <span class="badge bg-secondary ms-1">{{ user.role|upper }}</span>
-                </span>
-                <a href="/logout" class="btn btn-outline-light btn-sm">Cerrar Sesión</a>
+                <span class="me-3">Hola, <strong>{{ user.name }}</strong> <span class="badge bg-secondary ms-1">{{ user.role|upper }}</span></span>
+                <a href="/logout" class="btn btn-outline-light btn-sm">Salir</a>
             </div>
         </div>
     </nav>
 
     <div class="container mt-4">
-        
         <div id="statusAlert" class="alert" style="display:none;"></div>
 
         {% if user.role == 'admin' %}
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3>Panel de Control</h3>
+            <button onclick="downloadReport()" class="btn btn-outline-dark btn-sm">
+                <i class="bi bi-download"></i> Reporte PDF
+            </button>
+        </div>
+
         <div class="row mb-4">
-            <div class="col-12">
-                <div class="card stat-card p-3 mb-3 bg-white shadow-sm">
+            <div class="col-md-4">
+                <div class="card metric-card bg-gradient-primary p-3 shadow-sm">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h4 class="mb-0">Panel de Control</h4>
-                            <small class="text-muted">Gestión de Datos Maestros</small>
+                            <h6 class="text-uppercase mb-1">Estudiantes</h6>
+                            <h2 class="mb-0 fw-bold" id="stat-students">...</h2>
                         </div>
-                        <button onclick="downloadReport()" class="btn btn-success">
-                            <i class="bi bi-file-earmark-pdf"></i> Descargar Reporte Unificado
-                        </button>
+                        <i class="bi bi-people-fill metric-icon"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card metric-card bg-gradient-warning p-3 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1">Ofertas Activas</h6>
+                            <h2 class="mb-0 fw-bold" id="stat-opps">...</h2>
+                        </div>
+                        <i class="bi bi-briefcase-fill metric-icon"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card metric-card bg-gradient-success p-3 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1">Postulaciones</h6>
+                            <h2 class="mb-0 fw-bold" id="stat-apps">...</h2>
+                        </div>
+                        <i class="bi bi-file-earmark-check-fill metric-icon"></i>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="row g-4">
+        <div class="row g-4 mb-4">
             <div class="col-md-6">
                 <div class="card h-100 shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <i class="bi bi-person-plus"></i> Registrar Estudiante (SQL)
-                    </div>
+                    <div class="card-header bg-white fw-bold border-bottom-0"><i class="bi bi-person-plus text-primary"></i> Estudiante (SQL)</div>
                     <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Nombre Completo</label>
-                            <input type="text" id="stdName" class="form-control" placeholder="Ej: Juan Perez">
+                        <input type="text" id="stdName" class="form-control mb-2" placeholder="Nombre">
+                        <input type="email" id="stdEmail" class="form-control mb-2" placeholder="Email">
+                        <div class="row g-2">
+                            <div class="col-6"><input type="number" id="stdGpa" class="form-control" placeholder="GPA"></div>
+                            <div class="col-6"><select id="stdDept" class="form-select"><option>Ingeniería</option><option>Medicina</option></select></div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Correo Institucional</label>
-                            <input type="email" id="stdEmail" class="form-control" placeholder="juan@uce.edu.ec">
-                        </div>
-                        <div class="row">
-                            <div class="col-6 mb-3">
-                                <label class="form-label">Promedio (GPA)</label>
-                                <input type="number" id="stdGpa" class="form-control" step="0.1" placeholder="9.0">
-                            </div>
-                            <div class="col-6 mb-3">
-                                <label class="form-label">Carrera</label>
-                                <select id="stdDept" class="form-select">
-                                    <option>Ingeniería</option>
-                                    <option>Arquitectura</option>
-                                    <option>Medicina</option>
-                                </select>
-                            </div>
-                        </div>
-                        <button onclick="createStudent()" class="btn btn-primary w-100">Guardar en PostgreSQL</button>
+                        <button onclick="createStudent()" class="btn btn-primary w-100 mt-3">Guardar</button>
                     </div>
                 </div>
             </div>
-
             <div class="col-md-6">
                 <div class="card h-100 shadow-sm">
-                    <div class="card-header bg-warning text-dark">
-                        <i class="bi bi-briefcase"></i> Publicar Oportunidad (NoSQL)
-                    </div>
+                    <div class="card-header bg-white fw-bold border-bottom-0"><i class="bi bi-briefcase text-warning"></i> Oportunidad (Mongo)</div>
                     <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Título del Puesto</label>
-                            <input type="text" id="oppTitle" class="form-control" placeholder="Ej: Desarrollador Backend">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Empresa</label>
-                            <input type="text" id="oppCompany" class="form-control" placeholder="Ej: Tech Solutions">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Requisito Flexible (JSON)</label>
-                            <textarea id="oppReq" class="form-control" rows="3" placeholder='Ej: {"ingles": "B2", "experiencia": "Ninguna"}'></textarea>
-                            <small class="text-muted">Escribe un JSON válido o texto simple.</small>
-                        </div>
-                        <button onclick="createOpportunity()" class="btn btn-warning w-100">Guardar en MongoDB</button>
+                        <input type="text" id="oppTitle" class="form-control mb-2" placeholder="Título">
+                        <input type="text" id="oppCompany" class="form-control mb-2" placeholder="Empresa">
+                        <textarea id="oppReq" class="form-control mb-2" rows="1" placeholder='{"skill": "Java"}'></textarea>
+                        <button onclick="createOpportunity()" class="btn btn-warning w-100 mt-3">Publicar</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="row mb-5">
-            <div class="col-12">
-                <div class="card bg-success text-white shadow-sm p-4 text-center">
-                    <h3><i class="bi bi-inbox-fill"></i> Gestión de Postulaciones</h3>
-                    <p>Revisa quién ha aplicado a las ofertas publicadas.</p>
-                    <a href="/admin/applications-view" class="btn btn-light btn-lg fw-bold text-success">
-                        <i class="bi bi-eye"></i> Ver Postulaciones Recibidas
-                    </a>
-                </div>
-            </div>
+        <div class="card bg-success text-white shadow-sm p-4 text-center mb-5">
+            <h3><i class="bi bi-inbox-fill"></i> Gestión de Postulaciones</h3>
+            <p class="mb-3">Revisa y administra las solicitudes recibidas.</p>
+            <a href="/admin/applications-view" class="btn btn-light fw-bold text-success"><i class="bi bi-eye"></i> Ver Buzón</a>
         </div>
         {% endif %}
 
         {% if user.role == 'student' %}
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card bg-white shadow-sm p-4">
-                    <h3>🚀 Oportunidades Disponibles</h3>
-                    <p class="text-muted">Explora las ofertas almacenadas en nuestra base NoSQL (MongoDB).</p>
+        
+        <div class="row">
+            <div class="col-lg-8">
+                <h4 class="mb-3">🚀 Oportunidades Disponibles</h4>
+                <div id="opportunities-container" class="row g-3">
+                    <div class="col-12 text-center py-4"><div class="spinner-border text-primary"></div></div>
                 </div>
             </div>
-        </div>
 
-        <div id="opportunities-container" class="row g-4">
-            <div class="col-12 text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Cargando...</span>
+            <div class="col-lg-4">
+                <h4 class="mb-3">📄 Mis Postulaciones</h4>
+                <div class="card shadow-sm">
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush" id="my-apps-list">
+                            <li class="list-group-item text-center text-muted p-3">Cargando historial...</li>
+                        </ul>
+                    </div>
                 </div>
-                <p>Cargando ofertas desde MongoDB...</p>
             </div>
         </div>
         {% endif %}
@@ -147,145 +140,111 @@
     </div>
 
     <script>
+        // --- LOGICA ADMIN ---
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                document.getElementById('stat-students').innerText = data.students || 0;
+                document.getElementById('stat-opps').innerText = data.opportunities || 0;
+                document.getElementById('stat-apps').innerText = data.applications || 0;
+            } catch(e) { console.log("Error stats", e); }
+        }
+
         async function createStudent() {
-            const data = {
-                name: document.getElementById('stdName').value,
-                email: document.getElementById('stdEmail').value,
-                gpa: parseFloat(document.getElementById('stdGpa').value),
-                department: document.getElementById('stdDept').value
-            };
-            sendRequest('/api/students', data, 'Estudiante guardado en PostgreSQL');
+            const data = { name: document.getElementById('stdName').value, email: document.getElementById('stdEmail').value, gpa: parseFloat(document.getElementById('stdGpa').value), department: document.getElementById('stdDept').value };
+            if(!data.name) return alert("Faltan datos");
+            sendRequest('/api/students', data, 'Estudiante guardado');
+            setTimeout(loadStats, 1000); // Actualizar contadores
         }
 
         async function createOpportunity() {
             let reqs = document.getElementById('oppReq').value;
-            // Intentar parsear si es JSON, sino mandar texto plano en un objeto
             try { reqs = JSON.parse(reqs); } catch(e) { reqs = { "nota": reqs }; }
-
-            const data = {
-                title: document.getElementById('oppTitle').value,
-                company_name: document.getElementById('oppCompany').value,
-                description: "Creado desde Dashboard Admin",
-                requirements: reqs
-            };
-            sendRequest('/api/opportunities', data, 'Oportunidad guardada en MongoDB');
+            const data = { title: document.getElementById('oppTitle').value, company_name: document.getElementById('oppCompany').value, description: "Admin Post", requirements: reqs };
+            if(!data.title) return alert("Falta título");
+            sendRequest('/api/opportunities', data, 'Oferta publicada');
+            setTimeout(loadStats, 1000);
         }
 
-        async function sendRequest(url, data, successMsg) {
-            const alertBox = document.getElementById('statusAlert');
+        async function sendRequest(url, data, msg) {
+            const ab = document.getElementById('statusAlert');
             try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                const result = await response.json();
-                
-                alertBox.style.display = 'block';
-                if (response.ok) {
-                    alertBox.className = 'alert alert-success';
-                    alertBox.innerHTML = `✅ ${successMsg}`;
-                } else {
-                    alertBox.className = 'alert alert-danger';
-                    alertBox.innerHTML = `❌ Error: ${result.error || 'Desconocido'}`;
-                }
-            } catch (err) {
-                console.error(err);
-            }
+                const res = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+                const json = await res.json();
+                ab.style.display = 'block';
+                ab.className = res.ok ? 'alert alert-success' : 'alert alert-danger';
+                ab.innerText = res.ok ? '✅ ' + msg : '❌ ' + (json.error || 'Error');
+                setTimeout(() => ab.style.display = 'none', 4000);
+            } catch(e) { console.error(e); }
         }
 
-        function downloadReport() {
-            window.location.href = '/api/reports/combined';
-        }
+        function downloadReport() { window.location.href = '/api/reports/combined'; }
+
+        // --- LOGICA ESTUDIANTE ---
         async function loadOpportunities() {
-            const container = document.getElementById('opportunities-container');
-            if (!container) return; // Si no es estudiante, este div no existe
-
+            const cont = document.getElementById('opportunities-container');
+            if(!cont) return;
             try {
-                const response = await fetch('/api/opportunities');
-                const opportunities = await response.json();
-
-                container.innerHTML = ''; // Limpiar spinner
-
-                if (opportunities.length === 0) {
-                    container.innerHTML = '<div class="col-12 text-center">No hay ofertas publicadas aún.</div>';
-                    return;
-                }
-
-                opportunities.forEach(opp => {
-                    // Manejo dinámico de requisitos (JSON flexible)
-                    let reqsHtml = '';
-                    if (opp.requirements) {
-                        // Si es string (legacy) o objeto
-                        const reqObj = typeof opp.requirements === 'string' ? JSON.parse(opp.requirements) : opp.requirements;
-                        
-                        // Iteramos las claves del JSON NoSQL
-                        for (const [key, val] of Object.entries(reqObj)) {
-                            reqsHtml += `<span class="badge bg-info text-dark me-1">${key}: ${val}</span>`;
-                        }
-                    }
-
-                    const card = `
-                        <div class="col-md-4">
-                            <div class="card h-100 shadow-sm">
+                const res = await fetch('/api/opportunities');
+                const opps = await res.json();
+                cont.innerHTML = '';
+                if(opps.length === 0) cont.innerHTML = '<p class="text-muted">No hay ofertas.</p>';
+                
+                opps.forEach(o => {
+                    cont.innerHTML += `
+                        <div class="col-md-6">
+                            <div class="card h-100 shadow-sm border-start border-4 border-primary">
                                 <div class="card-body">
-                                    <h5 class="card-title text-primary">${opp.title || 'Sin Título'}</h5>
-                                    <h6 class="card-subtitle mb-2 text-muted">${opp.company_name || 'Empresa Confidencial'}</h6>
-                                    <p class="card-text">${opp.description || ''}</p>
-                                    <div class="mb-3">
-                                        ${reqsHtml}
-                                    </div>
-                                    <button onclick="applyToOpportunity('${opp.id}')" class="btn btn-outline-primary w-100">
-                                        Aplicar Ahora
-                                    </button>
-                                </div>
-                                <div class="card-footer text-muted small">
-                                    Ref Mongo: ${opp.id}
+                                    <h6 class="fw-bold text-primary">${o.title}</h6>
+                                    <small class="text-muted">${o.company_name}</small>
+                                    <button onclick="apply('${o.id}')" class="btn btn-sm btn-outline-primary w-100 mt-2">Aplicar</button>
                                 </div>
                             </div>
-                        </div>
-                    `;
-                    container.innerHTML += card;
+                        </div>`;
                 });
-
-            } catch (err) {
-                console.error(err);
-                container.innerHTML = '<div class="alert alert-danger">Error cargando datos.</div>';
-            }
+            } catch(e) { cont.innerHTML = 'Error cargando ofertas'; }
         }
 
-        async function applyToOpportunity(oppId) {
-            if (!confirm("¿Estás seguro de aplicar a esta vacante?")) return;
-
-            // Buscamos el botón para deshabilitarlo visualmente
-            // (Truco: usamos el evento click, pero como llamamos la función directo, 
-            // lo ideal sería pasar el botón 'this' como argumento, pero lo haremos simple)
-            
+        async function loadMyApplications() {
+            const list = document.getElementById('my-apps-list');
+            if(!list) return;
             try {
-                const response = await fetch('/api/applications', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ opportunity_id: oppId })
+                const res = await fetch('/api/my-applications');
+                const apps = await res.json();
+                list.innerHTML = '';
+                if(apps.length === 0) { list.innerHTML = '<li class="list-group-item text-muted text-center">Aún no has postulado.</li>'; return; }
+
+                apps.forEach(a => {
+                    let badgeClass = a.status === 'enviada' ? 'bg-secondary' : (a.status === 'aprobada' ? 'bg-success' : 'bg-danger');
+                    list.innerHTML += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="d-block text-muted">Ref: ${a.opportunity_id.substring(0,6)}...</small>
+                                <span class="badge ${badgeClass}">${a.status}</span>
+                            </div>
+                            <small class="text-muted">${a.created_at}</small>
+                        </li>`;
                 });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    alert("✅ ¡Éxito! Tu postulación ha sido registrada.\nReferencia #" + result.ref);
-                    // Opcional: Recargar para actualizar estado
-                } else {
-                    alert("❌ Error: " + result.error);
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Error de conexión");
-            }
+            } catch(e) { console.error(e); }
         }
 
-        // Ejecutar al cargar la página
-        document.addEventListener('DOMContentLoaded', loadOpportunities);
-    </script>
+        async function apply(id) {
+            if(!confirm("¿Postular?")) return;
+            try {
+                const res = await fetch('/api/applications', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({opportunity_id: id}) });
+                const json = await res.json();
+                if(res.ok) { alert("✅ Postulación enviada"); loadMyApplications(); } // Recargar historial
+                else alert("❌ " + json.error);
+            } catch(e) { alert("Error red"); }
+        }
 
+        document.addEventListener('DOMContentLoaded', () => {
+            // Cargas condicionales
+            if(document.getElementById('stat-students')) loadStats();
+            if(document.getElementById('opportunities-container')) { loadOpportunities(); loadMyApplications(); }
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

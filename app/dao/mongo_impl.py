@@ -15,9 +15,19 @@ class MongoOpportunityDAO(OpportunityDAO):
         self.collection: Collection = db['opportunities']
 
     def create(self, data: Dict[str, Any]) -> str:
-        # Mongo permite estructura libre. Insertamos el diccionario tal cual.
+        # 1. Validación de Duplicados
+        # Buscamos si ya existe una oferta con el mismo Título y Empresa
+        # (Usamos regex para que no importe mayúsculas/minúsculas)
+        existing = self.collection.find_one({
+            "title": {"$regex": f"^{data.get('title')}$", "$options": "i"},
+            "company_name": {"$regex": f"^{data.get('company_name')}$", "$options": "i"}
+        })
+
+        if existing:
+            raise ValueError(f"Ya existe la oferta '{data.get('title')}' para la empresa '{data.get('company_name')}'.")
+
+        # 2. Insertar si no existe
         result = self.collection.insert_one(data)
-        # Retornamos el ID generado como string
         return str(result.inserted_id)
 
     def get(self, id: Any) -> Optional[OpportunityDTO]:
