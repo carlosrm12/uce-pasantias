@@ -27,6 +27,16 @@ class MongoOpportunityDAO(OpportunityDAO):
             oid = ObjectId(id)
         except Exception:
             return None
+    
+    def get_all(self) -> List[Dict[str, Any]]:
+        # Find vacío {} trae todo
+        cursor = self.collection.find({})
+        results = []
+        for doc in cursor:
+            # Transformamos el ObjectId a string para que sea serializable
+            doc['id'] = str(doc.pop('_id'))
+            results.append(doc)
+        return results
 
         doc = self.collection.find_one({"_id": oid})
         if not doc:
