@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # SERVICIO 1: APLICACIÓN WEB
+  web:
+    build: ./app
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://uce_user:secret_password@postgres:5432/ucedb
+      - MONGO_URI=mongodb://mongo:27017/
+    depends_on:
+      - postgres
+      - mongo
+    networks:
+      - uce-net
+
+  # SERVICIO 2: POSTGRESQL (Línea 18 aprox - Alineado con 'web')
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: uce_user
+      POSTGRES_PASSWORD: secret_password
+      POSTGRES_DB: ucedb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - uce-net
+
+  # SERVICIO 3: MONGODB (Alineado con 'web' y 'postgres')
+  mongo:
+    image: mongo:6.0
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - uce-net
+
+# VOLÚMENES PERSISTENTES (Alineado al margen izquierdo, igual que 'services')
+volumes:
+  postgres_data:
+  mongo_data:
+
+# REDES (Alineado al margen izquierdo)
+networks:
+  uce-net:
