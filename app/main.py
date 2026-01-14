@@ -281,6 +281,88 @@ def get_report():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# --- NUEVAS RUTAS PARA MEJORAS UI ---
+
+@app.route('/api/stats', methods=['GET'])
+@login_required
+def get_dashboard_stats():
+    """Retorna contadores para las tarjetas del Admin"""
+    if current_user.role != 'admin':
+        return jsonify({}), 403
+
+    factory = UCEFactory()
+    try:
+        # 1. Contar Estudiantes (SQL)
+        std_dao = factory.get_student_dao()
+        total_students = len(std_dao.get_all())
+
+        # 2. Contar Postulaciones (SQL)
+        app_dao = factory.get_application_dao()
+        total_apps = len(app_dao.get_all())
+
+        # 3. Contar Oportunidades (Mongo)
+        # Nota: Usamos una instancia temporal directa porque MongoOpportunityDAO no tiene get_all en la interfaz genérica a veces
+        # Pero asumiremos que tu factory devuelve el DAO correcto.
+        opp_dao = factory.get_opportunity_dao()
+        total_opps = len(opp_dao.get_all())
+
+        return jsonify({
+            "students": total_students,
+            "opportunities": total_opps,
+            "applications": total_apps
+        })
+    except Exception as e:
+        print(f"Error stats: {e}")
+        return jsonify({"students": 0, "opportunities": 0, "applications": 0})
+    finally:
+        factory.close()
+
+@app.route('/api/my-applications', methods=['GET'])
+@login_required
+def get_my_applications():
+    """Retorna historial del estudiante logueado"""
+    if current_user.role != 'student':
+        return jsonify([]), 403
+    
+    factory = UCEFactory()
+    try:
+        app_dao = factory.get_application_dao()
+        # Usamos el método nuevo que creamos en el Paso 1
+        my_apps = app_dao.get_by_user_id(current_user.id)
+        return jsonify(my_apps)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        factory.close()
+
+@app.route('/api/applications/<int:app_id>/status', methods=['PUT'])
+@login_required
+def update_application_status(app_id):
+    """Permite al Admin aprobar o rechazar una postulación"""
+    if current_user.role != 'admin':
+        return jsonify({"error": "No tiene permisos de administrador"}), 403
+    
+    data = request.json
+    new_status = data.get('status')
+    
+    # Validación básica de estados permitidos
+    if new_status not in ['aprobada', 'rechazada']:
+        return jsonify({"error": "Estado no válido. Use 'aprobada' o 'rechazada'"}), 400
+
+    factory = UCEFactory()
+    try:
+        app_dao = factory.get_application_dao()
+        success = app_dao.update(app_id, {"status": new_status})
+        
+        if success:
+            return jsonify({"message": f"Postulación marcada como {new_status}"}), 200
+        else:
+            return jsonify({"error": "No se encontró la postulación"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        factory.close()
+
 if __name__ == '__main__':
     # Esto solo se usa para desarrollo local sin Docker
     app.run(host='0.0.0.0', port=5000)

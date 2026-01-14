@@ -9,9 +9,9 @@
 </head>
 <body class="bg-light">
 
-    <nav class="navbar navbar-dark bg-dark mb-4">
+    <nav class="navbar navbar-dark bg-dark mb-4 shadow-sm">
         <div class="container">
-            <span class="navbar-brand mb-0 h1">Admin Panel</span>
+            <span class="navbar-brand mb-0 h1"><i class="bi bi-shield-lock-fill"></i> Panel de Decisiones</span>
             <a href="/dashboard" class="btn btn-outline-light btn-sm">
                 <i class="bi bi-arrow-left"></i> Volver al Dashboard
             </a>
@@ -19,6 +19,8 @@
     </nav>
 
     <div class="container">
+        <div id="actionAlert" class="alert" style="display:none; position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
         <div class="card shadow-sm">
             <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                 <h4 class="mb-0"><i class="bi bi-folder2-open"></i> Buzón de Postulaciones</h4>
@@ -28,18 +30,18 @@
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover table-striped mb-0">
+                    <table class="table table-hover table-striped mb-0 align-middle">
                         <thead class="table-light">
                             <tr>
                                 <th>ID</th>
                                 <th>Candidato</th>
                                 <th>Ref. Oportunidad</th>
                                 <th>Fecha</th>
-                                <th>Estado</th>
-                            </tr>
+                                <th>Estado Actual</th>
+                                <th class="text-end pe-4">Acciones</th> </tr>
                         </thead>
                         <tbody id="apps-table-body">
-                            <tr><td colspan="5" class="text-center p-4">Cargando...</td></tr>
+                            <tr><td colspan="6" class="text-center p-4">Cargando...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -51,20 +53,27 @@
         async function loadApplications() {
             const tableBody = document.getElementById('apps-table-body');
             try {
-                // Usamos el endpoint API que creamos antes
                 const response = await fetch('/api/applications/all');
-                
                 if (!response.ok) throw new Error("Error de conexión");
 
                 const apps = await response.json();
                 tableBody.innerHTML = '';
 
                 if (apps.length === 0) {
-                    tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">📭 No hay postulaciones nuevas.</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="6" class="text-center p-4 text-muted">📭 No hay postulaciones pendientes.</td></tr>';
                     return;
                 }
 
                 apps.forEach(app => {
+                    // Definir color del badge según estado
+                    let badgeColor = 'bg-secondary';
+                    if (app.status === 'aprobada') badgeColor = 'bg-success';
+                    if (app.status === 'rechazada') badgeColor = 'bg-danger';
+                    if (app.status === 'enviada') badgeColor = 'bg-warning text-dark';
+
+                    // Botones deshabilitados si ya no está "enviada"
+                    const isDisabled = app.status !== 'enviada' ? 'disabled' : '';
+
                     const row = `
                         <tr>
                             <td>#${app.id}</td>
@@ -72,9 +81,17 @@
                                 <strong>${app.student.split('(')[0]}</strong><br>
                                 <small class="text-muted">${app.student.split('(')[1].replace(')', '')}</small>
                             </td>
-                            <td><code class="text-primary">${app.opportunity_id}</code></td>
+                            <td><code class="text-primary">${app.opportunity_id.substring(0,8)}...</code></td>
                             <td>${app.created_at}</td>
-                            <td><span class="badge bg-warning text-dark">${app.status}</span></td>
+                            <td><span class="badge ${badgeColor}">${app.status.toUpperCase()}</span></td>
+                            <td class="text-end pe-4">
+                                <button onclick="updateStatus(${app.id}, 'aprobada')" class="btn btn-sm btn-outline-success" ${isDisabled} title="Aprobar">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                                <button onclick="updateStatus(${app.id}, 'rechazada')" class="btn btn-sm btn-outline-danger ms-1" ${isDisabled} title="Rechazar">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </td>
                         </tr>
                     `;
                     tableBody.innerHTML += row;
@@ -82,11 +99,40 @@
 
             } catch (err) {
                 console.error(err);
-                tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error al cargar datos.</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar datos.</td></tr>';
             }
         }
 
-        // Cargar al iniciar
+        async function updateStatus(id, newStatus) {
+            if (!confirm(`¿Estás seguro de marcar esta postulación como ${newStatus.toUpperCase()}?`)) return;
+
+            const alertBox = document.getElementById('actionAlert');
+            try {
+                const res = await fetch(`/api/applications/${id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                const json = await res.json();
+
+                alertBox.style.display = 'block';
+                if (res.ok) {
+                    alertBox.className = 'alert alert-success shadow';
+                    alertBox.innerHTML = `✅ ${json.message}`;
+                    loadApplications(); // Recargar tabla para ver el cambio
+                } else {
+                    alertBox.className = 'alert alert-danger shadow';
+                    alertBox.innerHTML = `❌ Error: ${json.error}`;
+                }
+
+                setTimeout(() => alertBox.style.display = 'none', 3000);
+
+            } catch (err) {
+                alert("Error de red");
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', loadApplications);
     </script>
 
