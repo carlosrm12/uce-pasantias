@@ -110,6 +110,18 @@
                 </div>
             </div>
         </div>
+
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="card bg-success text-white shadow-sm p-4 text-center">
+                    <h3><i class="bi bi-inbox-fill"></i> Gestión de Postulaciones</h3>
+                    <p>Revisa quién ha aplicado a las ofertas publicadas.</p>
+                    <a href="/admin/applications-view" class="btn btn-light btn-lg fw-bold text-success">
+                        <i class="bi bi-eye"></i> Ver Postulaciones Recibidas
+                    </a>
+                </div>
+            </div>
+        </div>
         {% endif %}
 
         {% if user.role == 'student' %}

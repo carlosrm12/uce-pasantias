@@ -126,8 +126,36 @@ def register():
             
     return render_template('register.html')
 
+@app.route('/api/applications/all', methods=['GET'])
+@login_required
+def get_applications_list():
+    """Retorna todas las postulaciones (Solo para Admin)"""
+    # Seguridad básica: Si no es admin, prohibido ver
+    if current_user.role != 'admin':
+        return jsonify({"error": "No autorizado"}), 403
+
+    factory = UCEFactory()
+    try:
+        app_dao = factory.get_application_dao()
+        apps = app_dao.get_all()
+        return jsonify(apps), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        factory.close()
+
+@app.route('/admin/applications-view')
+@login_required
+def admin_applications_view():
+    """Renderiza la página HTML de postulaciones"""
+    if current_user.role != 'admin':
+        return redirect(url_for('dashboard'))
+    
+    # Pasamos el usuario para (opcionalmente) mostrar su nombre
+    return render_template('applications.html', user=current_user)
+
 @app.route('/api/applications', methods=['POST'])
-@login_required # <--- Solo usuarios logueados
+@login_required 
 def apply_opportunity():
     """Registra la postulación del estudiante"""
     data = request.json
@@ -138,10 +166,9 @@ def apply_opportunity():
 
     factory = UCEFactory()
     try:
-        # Usamos el nuevo DAO
         app_dao = factory.get_application_dao()
         
-        # Guardamos el cruce: ID del usuario actual + ID de Mongo
+        # Intentamos crear
         app_id = app_dao.create({
             "user_id": current_user.id,
             "opportunity_id": opp_id,
@@ -149,7 +176,14 @@ def apply_opportunity():
         })
         
         return jsonify({"message": "Postulación exitosa", "ref": app_id}), 201
+
+    except ValueError as e:
+        # CAPTURAMOS EL ERROR DE DUPLICADO AQUÍ
+        # Retornamos 409 (Conflict) con el mensaje que escribimos en el DAO
+        return jsonify({"error": str(e)}), 409 
+
     except Exception as e:
+        # Cualquier otro error inesperado
         return jsonify({"error": str(e)}), 500
     finally:
         factory.close()

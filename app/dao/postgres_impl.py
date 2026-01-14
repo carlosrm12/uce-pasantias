@@ -9,7 +9,7 @@ from app.dto.models import StudentDTO, UserDTO
 
 class PostgresStudentDAO(StudentDAO):
     """
-    Implementación para Estudiantes (Datos Académicos).
+    Implementación para Estudiantes (Datos Académicos para reportes).
     """
     def __init__(self, session: Session):
         self.session = session
@@ -27,7 +27,7 @@ class PostgresStudentDAO(StudentDAO):
         return self._map_to_dto(student)
         
     def get_all(self) -> List[Dict[str, Any]]:
-        # Optimizado para el reporte
+        # --- CORREGIDO: Esto devuelve ESTUDIANTES, no aplicaciones ---
         students = self.session.query(StudentModel).all()
         return [
             {
@@ -109,7 +109,18 @@ class PostgresApplicationDAO(GenericDAO):
         self.session = session
 
     def create(self, data: Dict[str, Any]) -> Any:
-        # data espera: {'user_id': 1, 'opportunity_id': 'xyz', 'status': 'enviada'}
+        # 1. Validación de Duplicados
+        # Buscamos si existe una fila con el mismo user_id y opportunity_id
+        existing_app = self.session.query(ApplicationModel).filter_by(
+            user_id=data['user_id'],
+            opportunity_id=data['opportunity_id']
+        ).first()
+
+        if existing_app:
+            # Si existe, lanzamos una excepción controlada para que el Controller la atrape
+            raise ValueError("Ya has enviado una postulación a esta oportunidad.")
+
+        # 2. Si no existe, procedemos a crearla
         app = ApplicationModel(**data)
         self.session.add(app)
         self.session.commit()
@@ -121,8 +132,28 @@ class PostgresApplicationDAO(GenericDAO):
         return None
 
     def get_all(self) -> List[Dict[str, Any]]:
-        # Retornamos lista vacía para cumplir el contrato
-        return []
+        # --- CORREGIDO: Aquí es donde va la lógica de APLICACIONES ---
+        # 1. Consultamos la base de datos real
+        apps = self.session.query(ApplicationModel).order_by(ApplicationModel.created_at.desc()).all()
+        
+        result = []
+        for app in apps:
+            # 2. Obtenemos datos del usuario gracias a la relación
+            if app.user:
+                user_info = f"{app.user.name} ({app.user.email})"
+            else:
+                user_info = "Usuario Desconocido"
+
+            # 3. Construimos el diccionario para el Frontend
+            result.append({
+                "id": app.id,
+                "student": user_info,
+                "opportunity_id": app.opportunity_id,
+                "status": app.status,
+                "created_at": app.created_at.strftime("%Y-%m-%d %H:%M") 
+            })
+            
+        return result
 
     def update(self, id: Any, data: Dict[str, Any]) -> bool:
         return False
