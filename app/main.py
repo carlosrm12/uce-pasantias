@@ -57,11 +57,11 @@ with app.app_context():
 
 @app.route('/')
 def home():
-    return jsonify({
-        "status": "online",
-        "system": "UCE Internship Platform",
-        "architecture": "Abstract Factory + Polyglot Persistence"
-    })
+    # Redirección Inteligente
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    else:
+        return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
