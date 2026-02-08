@@ -1,9 +1,23 @@
 services:
-  # SERVICIO 1: APLICACIÓN WEB
-  web:
-    build: ./app
+  # --- NUEVO SERVICIO: BALANCEADOR DE CARGA ---
+  nginx:
+    image: nginx:alpine
     ports:
-      - "5000:5000"
+      - "80:80" # Ahora entramos por el puerto 80 (estándar web)
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+    networks:
+      - uce-net
+
+  # SERVICIO 1: APLICACIÓN WEB (Modificado para escalar)
+  web:
+    build: ./app # ./app ya que esta dentro de la carpeta app
+    # ports:
+    #   - "5000:5000"  <-- COMENTADO: Ya no exponemos este puerto al mundo
+    expose:
+      - "5000" # Solo visible para Nginx dentro de la red
     environment:
       - DATABASE_URL=postgresql://uce_user:secret_password@postgres:5432/ucedb
       - MONGO_URI=mongodb://mongo:27017/
@@ -13,7 +27,7 @@ services:
     networks:
       - uce-net
 
-  # SERVICIO 2: POSTGRESQL (Línea 18 aprox - Alineado con 'web')
+  # SERVICIO 2: POSTGRESQL
   postgres:
     image: postgres:15-alpine
     environment:
@@ -25,7 +39,7 @@ services:
     networks:
       - uce-net
 
-  # SERVICIO 3: MONGODB (Alineado con 'web' y 'postgres')
+  # SERVICIO 3: MONGODB
   mongo:
     image: mongo:6.0
     volumes:
@@ -33,11 +47,11 @@ services:
     networks:
       - uce-net
 
-# VOLÚMENES PERSISTENTES (Alineado al margen izquierdo, igual que 'services')
+# VOLÚMENES PERSISTENTES
 volumes:
   postgres_data:
   mongo_data:
 
-# REDES (Alineado al margen izquierdo)
+# REDES
 networks:
   uce-net:

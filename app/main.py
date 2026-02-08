@@ -1,3 +1,4 @@
+import socket
 from flask import Flask, jsonify, request, send_file, render_template, redirect, url_for
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -126,7 +127,9 @@ def register():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    return render_template('index.html', user=current_user)
+    # Obtenemos el ID del contenedor actual
+    container_id = socket.gethostname()
+    return render_template('index.html', user=current_user, node_id=container_id)
 
 # --- API: GESTIÓN DE ESTUDIANTES (SQL) ---
 
