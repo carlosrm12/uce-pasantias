@@ -45,6 +45,10 @@
       .bg-gradient-warning {
         background: linear-gradient(45deg, #f6c23e, #dda20a);
       }
+      .table-responsive {
+        max-height: 400px;
+        overflow-y: auto;
+      }
     </style>
   </head>
   <body>
@@ -216,12 +220,24 @@
         <div class="col-lg-4">
           <h4 class="mb-3">📄 Mis Postulaciones</h4>
           <div class="card shadow-sm">
-            <div class="card-body p-0">
-              <ul class="list-group list-group-flush" id="my-apps-list">
-                <li class="list-group-item text-center text-muted p-3">
-                  Cargando historial...
-                </li>
-              </ul>
+            <div class="card-body p-0 table-responsive">
+              <table class="table table-striped table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Empresa</th>
+                    <th>Oferta</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody id="my-applications-body">
+                  <tr>
+                    <td colspan="4" class="text-center text-muted p-3">
+                      Cargando historial...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -306,20 +322,41 @@
           const res = await fetch("/api/opportunities");
           const opps = await res.json();
           cont.innerHTML = "";
-          if (opps.length === 0)
-            cont.innerHTML = '<p class="text-muted">No hay ofertas.</p>';
+
+          if (opps.length === 0) {
+            cont.innerHTML =
+              '<p class="text-muted">No hay ofertas disponibles.</p>';
+            return;
+          }
 
           opps.forEach((o) => {
-            cont.innerHTML += `
+            // DETECTAMOS SI ES LA TARJETA DE MANTENIMIENTO
+            if (o.id === "maintenance") {
+              cont.innerHTML += `
+                        <div class="col-12">
+                            <div class="card h-100 shadow-sm border-danger border-2 bg-light">
+                                <div class="card-body text-center text-danger">
+                                    <h2 class="display-4"><i class="bi bi-cone-striped"></i></h2>
+                                    <h5 class="fw-bold">${o.title}</h5>
+                                    <p>${o.description}</p>
+                                    <small class="text-muted">${o.company_name}</small>
+                                </div>
+                            </div>
+                        </div>`;
+            } else {
+              // TARJETA NORMAL
+              cont.innerHTML += `
                         <div class="col-md-6">
                             <div class="card h-100 shadow-sm border-start border-4 border-primary">
                                 <div class="card-body">
                                     <h6 class="fw-bold text-primary">${o.title}</h6>
                                     <small class="text-muted">${o.company_name}</small>
+                                    <p class="card-text mt-2" style="font-size: 0.9em;">${o.description || "Sin descripción"}</p>
                                     <button onclick="apply('${o.id}')" class="btn btn-sm btn-outline-primary w-100 mt-2">Aplicar</button>
                                 </div>
                             </div>
                         </div>`;
+            }
           });
         } catch (e) {
           cont.innerHTML = "Error cargando ofertas";
@@ -327,41 +364,48 @@
       }
 
       async function loadMyApplications() {
-        const list = document.getElementById("my-apps-list");
-        if (!list) return;
+        // Obtenemos el cuerpo de la tabla por su ID
+        const tableBody = document.getElementById("my-applications-body");
+        if (!tableBody) return;
+
         try {
           const res = await fetch("/api/my-applications");
-          const apps = await res.json();
-          list.innerHTML = "";
-          if (apps.length === 0) {
-            list.innerHTML =
-              '<li class="list-group-item text-muted text-center">Aún no has postulado.</li>';
+
+          if (!res.ok) {
+            tableBody.innerHTML =
+              '<tr><td colspan="4" class="text-center text-danger">Error cargando datos.</td></tr>';
             return;
           }
 
-          apps.forEach((a) => {
-            let badgeClass =
-              a.status === "enviada"
-                ? "bg-secondary"
-                : a.status === "aprobada"
-                  ? "bg-success"
-                  : "bg-danger";
-            list.innerHTML += `
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <small class="d-block text-muted">Ref: ${a.opportunity_id.substring(
-                                  0,
-                                  6,
-                                )}...</small>
-                                <span class="badge ${badgeClass}">${
-                                  a.status
-                                }</span>
-                            </div>
-                            <small class="text-muted">${a.created_at}</small>
-                        </li>`;
+          const apps = await res.json();
+
+          // Validación de seguridad: Verificar que sea un array
+          if (!Array.isArray(apps) || apps.length === 0) {
+            tableBody.innerHTML =
+              '<tr><td colspan="4" class="text-center text-muted">No tienes postulaciones aún.</td></tr>';
+            return;
+          }
+
+          tableBody.innerHTML = "";
+
+          apps.forEach((app) => {
+            let badgeClass = "bg-secondary";
+            if (app.status === "aprobada") badgeClass = "bg-success";
+            if (app.status === "rechazada") badgeClass = "bg-danger";
+
+            // Renderizamos la fila de la tabla
+            tableBody.innerHTML += `
+                    <tr>
+                        <td style="font-size:0.9em">${app.date || "N/A"}</td>
+                        <td style="font-size:0.9em">${app.company_name || "Desconocido"}</td>
+                        <td style="font-size:0.9em">${app.opportunity_title || "No disponible"}</td>
+                        <td><span class="badge ${badgeClass}">${app.status || "Enviada"}</span></td>
+                    </tr>`;
           });
         } catch (e) {
-          console.error(e);
+          console.error("Error JS:", e);
+          tableBody.innerHTML =
+            '<tr><td colspan="4" class="text-center text-warning">Error de visualización.</td></tr>';
         }
       }
 
@@ -376,9 +420,8 @@
           const json = await res.json();
           if (res.ok) {
             alert("✅ Postulación enviada");
-            loadMyApplications();
-          } // Recargar historial
-          else alert("❌ " + json.error);
+            loadMyApplications(); // Recargar historial
+          } else alert("❌ " + json.error);
         } catch (e) {
           alert("Error red");
         }
@@ -400,7 +443,5 @@
         <span class="badge bg-warning text-dark">{{ node_id }}</span>
       </small>
     </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>

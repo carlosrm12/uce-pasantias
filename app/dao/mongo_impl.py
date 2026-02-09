@@ -1,84 +1,136 @@
 from typing import Dict, Any, Optional, List
+from pymongo import MongoClient
 from pymongo.collection import Collection
+from pymongo.errors import PyMongoError # Importante para detectar errores de Mongo
 from bson.objectid import ObjectId
 from app.dao.interfaces import OpportunityDAO
 from app.dto.models import OpportunityDTO
+import pybreaker
+import logging
+
+# --- CONFIGURACIÓN DEL CIRCUIT BREAKER ---
+db_breaker = pybreaker.CircuitBreaker(fail_max=3, reset_timeout=10)
 
 class MongoOpportunityDAO(OpportunityDAO):
-    """
-    Implementación concreta para MongoDB.
-    Maneja la variabilidad de esquemas y documentos anidados.
-    Fuente: Sección 4.2.3 y 6.3
-    """
-    def __init__(self, db):
-        # Seleccionamos la colección 'opportunities'
-        self.collection: Collection = db['opportunities']
+    def __init__(self, connection_uri: str):
+        # Fail Fast: 2 segundos máximo
+        self.client = MongoClient(
+            connection_uri, 
+            serverSelectionTimeoutMS=2000,
+            connectTimeoutMS=2000,
+            socketTimeoutMS=2000
+        )
+        self.db = self.client['ucedb']
+        self.collection: Collection = self.db['opportunities']
 
+    # ---------------------------------------------------------
+    # CREATE
+    # ---------------------------------------------------------
     def create(self, data: Dict[str, Any]) -> str:
-        # 1. Validación de Duplicados
-        # Buscamos si ya existe una oferta con el mismo Título y Empresa
-        # (Usamos regex para que no importe mayúsculas/minúsculas)
+        # Aquí no necesitamos try/except complejo, si falla al crear, 
+        # queremos que el usuario sepa que falló.
+        return self._protected_create(data)
+
+    @db_breaker
+    def _protected_create(self, data: Dict[str, Any]) -> str:
+        # VALIDACIÓN DE DUPLICADOS
         existing = self.collection.find_one({
             "title": {"$regex": f"^{data.get('title')}$", "$options": "i"},
             "company_name": {"$regex": f"^{data.get('company_name')}$", "$options": "i"}
         })
-
         if existing:
-            raise ValueError(f"Ya existe la oferta '{data.get('title')}' para la empresa '{data.get('company_name')}'.")
+            raise ValueError(f"Ya existe la oferta '{data.get('title')}' para '{data.get('company_name')}'.")
 
-        # 2. Insertar si no existe
         result = self.collection.insert_one(data)
         return str(result.inserted_id)
 
-    def get(self, id: Any) -> Optional[OpportunityDTO]:
-        try:
-            # IMPORTANTE: Convertir string a ObjectId para buscar en Mongo
-            # Fuente: Sección 6.3 (cite 252)
-            oid = ObjectId(id)
-        except Exception:
-            return None
-    
+    # ---------------------------------------------------------
+    # GET ALL (Lista de Ofertas)
+    # ---------------------------------------------------------
     def get_all(self) -> List[Dict[str, Any]]:
-        # Find vacío {} trae todo
+        try:
+            return self._protected_get_all()
+        
+        except pybreaker.CircuitBreakerError:
+            logging.warning("⚠️ Circuit Breaker ABIERTO.")
+            return self._get_maintenance_card()
+            
+        except Exception as e:
+            # Capturamos el Timeout de 2s aquí (primeros fallos)
+            logging.error(f"Error Mongo get_all: {e}")
+            # Opcional: Retornar tarjeta de mantenimiento incluso en el primer fallo
+            return self._get_maintenance_card() 
+
+    @db_breaker
+    def _protected_get_all(self) -> List[Dict[str, Any]]:
+        # ¡SIN TRY/EXCEPT! Si falla, que explote para que el Breaker cuente el error
         cursor = self.collection.find({})
         results = []
         for doc in cursor:
-            # Transformamos el ObjectId a string para que sea serializable
             doc['id'] = str(doc.pop('_id'))
             results.append(doc)
         return results
 
-        doc = self.collection.find_one({"_id": oid})
+    # ---------------------------------------------------------
+    # GET (Una Oferta / Usado en Mis Postulaciones)
+    # ---------------------------------------------------------
+    def get(self, id: Any) -> Optional[OpportunityDTO]:
+        try:
+            return self._protected_get(id)
+            
+        except pybreaker.CircuitBreakerError:
+            # Circuito abierto -> Retorno inmediato
+            return self._get_maintenance_dto(id)
+            
+        except Exception as e:
+            # Error de conexión (Timeout 2s) -> Retorno seguro
+            logging.error(f"Error Mongo get individual: {e}")
+            return self._get_maintenance_dto(id)
+
+    @db_breaker
+    def _protected_get(self, id: Any) -> Optional[OpportunityDTO]:
+        # ¡SIN TRY/EXCEPT GENÉRICO! 
+        # Solo capturamos error de ObjectId inválido, pero dejamos pasar errores de RED
+        try:
+            oid = ObjectId(id)
+        except:
+            return None # ID inválido no es culpa de la base de datos
+
+        doc = self.collection.find_one({"_id": oid}) # Si esto falla por red, lanza Excepción y el Breaker salta
+        
         if not doc:
             return None
-        
         return self._map_to_dto(doc)
 
+    # ---------------------------------------------------------
+    # HELPERS
+    # ---------------------------------------------------------
     def _map_to_dto(self, doc: Dict[str, Any]) -> OpportunityDTO:
-        """Helper para convertir documento BSON a DTO limpio"""
-        # Extraemos campos conocidos, el resto va a metadata
         return OpportunityDTO(
             id=str(doc['_id']),
             title=doc.get('title', 'Sin Título'),
             company_name=doc.get('company_name', 'Anónimo'),
             description=doc.get('description', ''),
-            metadata=doc.get('requirements', {}) # Flexibilidad aquí [cite: 64]
+            metadata=doc.get('requirements', {})
         )
 
-    # Implementación básica de update y delete
-    def update(self, id: Any, data: Dict[str, Any]) -> bool:
-        try:
-            result = self.collection.update_one(
-                {"_id": ObjectId(id)}, 
-                {"$set": data}
-            )
-            return result.modified_count > 0
-        except:
-            return False
+    def _get_maintenance_card(self):
+        return [{
+            "id": "maintenance",
+            "title": "🔴 Sistema en Mantenimiento",
+            "company_name": "Intente más tarde",
+            "description": "Base de datos temporalmente no disponible.",
+            "requirements": {}
+        }]
 
-    def delete(self, id: Any) -> bool:
-        try:
-            result = self.collection.delete_one({"_id": ObjectId(id)})
-            return result.deleted_count > 0
-        except:
-            return False
+    def _get_maintenance_dto(self, id):
+        return OpportunityDTO(
+            id=str(id),
+            title="Oferta no disponible",
+            company_name="Sistema Offline",
+            description="Mantenimiento",
+            metadata={}
+        )
+
+    def update(self, id: Any, data: Dict[str, Any]) -> bool: return False
+    def delete(self, id: Any) -> bool: return False
