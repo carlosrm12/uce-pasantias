@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional, List
 from pymongo import MongoClient
 from pymongo.collection import Collection
-from pymongo.errors import PyMongoError # Importante para detectar errores de Mongo
+from pymongo.errors import PyMongoError, ServerSelectionTimeoutError
 from bson.objectid import ObjectId
 from app.dao.interfaces import OpportunityDAO
 from app.dto.models import OpportunityDTO
@@ -27,8 +27,6 @@ class MongoOpportunityDAO(OpportunityDAO):
     # CREATE
     # ---------------------------------------------------------
     def create(self, data: Dict[str, Any]) -> str:
-        # Aquí no necesitamos try/except complejo, si falla al crear, 
-        # queremos que el usuario sepa que falló.
         return self._protected_create(data)
 
     @db_breaker
@@ -56,14 +54,13 @@ class MongoOpportunityDAO(OpportunityDAO):
             return self._get_maintenance_card()
             
         except Exception as e:
-            # Capturamos el Timeout de 2s aquí (primeros fallos)
+            # Capturamos el Timeout de 2s aquí
             logging.error(f"Error Mongo get_all: {e}")
-            # Opcional: Retornar tarjeta de mantenimiento incluso en el primer fallo
             return self._get_maintenance_card() 
 
     @db_breaker
     def _protected_get_all(self) -> List[Dict[str, Any]]:
-        # ¡SIN TRY/EXCEPT! Si falla, que explote para que el Breaker cuente el error
+        # ¡SIN TRY/EXCEPT! Si falla, explota para activar el Breaker
         cursor = self.collection.find({})
         results = []
         for doc in cursor:
@@ -72,35 +69,64 @@ class MongoOpportunityDAO(OpportunityDAO):
         return results
 
     # ---------------------------------------------------------
-    # GET (Una Oferta / Usado en Mis Postulaciones)
+    # GET (Una Oferta)
     # ---------------------------------------------------------
     def get(self, id: Any) -> Optional[OpportunityDTO]:
         try:
             return self._protected_get(id)
             
         except pybreaker.CircuitBreakerError:
-            # Circuito abierto -> Retorno inmediato
             return self._get_maintenance_dto(id)
             
         except Exception as e:
-            # Error de conexión (Timeout 2s) -> Retorno seguro
             logging.error(f"Error Mongo get individual: {e}")
             return self._get_maintenance_dto(id)
 
     @db_breaker
     def _protected_get(self, id: Any) -> Optional[OpportunityDTO]:
-        # ¡SIN TRY/EXCEPT GENÉRICO! 
-        # Solo capturamos error de ObjectId inválido, pero dejamos pasar errores de RED
         try:
             oid = ObjectId(id)
         except:
-            return None # ID inválido no es culpa de la base de datos
+            return None # ID inválido
 
-        doc = self.collection.find_one({"_id": oid}) # Si esto falla por red, lanza Excepción y el Breaker salta
+        doc = self.collection.find_one({"_id": oid})
         
         if not doc:
             return None
         return self._map_to_dto(doc)
+
+    # ---------------------------------------------------------
+    # UPDATE (IMPLEMENTADO ✅)
+    # ---------------------------------------------------------
+    def update(self, id: Any, data: Dict[str, Any]) -> bool:
+        """
+        Actualiza una oferta existente.
+        No usamos decorador aquí para manejar el error manualmente en la API.
+        """
+        try:
+            oid = ObjectId(id)
+            # $set asegura que solo se actualicen los campos enviados
+            result = self.collection.update_one({"_id": oid}, {"$set": data})
+            # matched_count > 0 significa que encontró el ID, aunque no haya cambios
+            return result.matched_count > 0
+        except Exception as e:
+            logging.error(f"Error update Mongo: {e}")
+            return False
+
+    # ---------------------------------------------------------
+    # DELETE (IMPLEMENTADO ✅)
+    # ---------------------------------------------------------
+    def delete(self, id: Any) -> bool:
+        """
+        Elimina una oferta por ID.
+        """
+        try:
+            oid = ObjectId(id)
+            result = self.collection.delete_one({"_id": oid})
+            return result.deleted_count > 0
+        except Exception as e:
+            logging.error(f"Error delete Mongo: {e}")
+            return False
 
     # ---------------------------------------------------------
     # HELPERS
@@ -131,6 +157,3 @@ class MongoOpportunityDAO(OpportunityDAO):
             description="Mantenimiento",
             metadata={}
         )
-
-    def update(self, id: Any, data: Dict[str, Any]) -> bool: return False
-    def delete(self, id: Any) -> bool: return False

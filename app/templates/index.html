@@ -83,7 +83,7 @@
 
       <div class="row mb-4">
         <div class="col-md-4">
-          <div class="card metric-card bg-gradient-primary p-3 shadow-sm">
+          <div class="card metric-card bg-gradient-primary p-3 shadow-sm h-100">
             <div class="d-flex justify-content-between align-items-center">
               <div>
                 <h6 class="text-uppercase mb-1">Estudiantes</h6>
@@ -93,19 +93,30 @@
             </div>
           </div>
         </div>
+
         <div class="col-md-4">
-          <div class="card metric-card bg-gradient-warning p-3 shadow-sm">
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <h6 class="text-uppercase mb-1">Ofertas Activas</h6>
-                <h2 class="mb-0 fw-bold" id="stat-opps">...</h2>
+          <a href="/admin/opportunities-view" class="text-decoration-none">
+            <div
+              class="card metric-card bg-gradient-warning p-3 shadow-sm h-100"
+            >
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="text-uppercase mb-1 text-white">
+                    Ofertas Activas
+                  </h6>
+                  <h2 class="mb-0 fw-bold text-white" id="stat-opps">...</h2>
+                  <small class="text-white-50" style="font-size: 0.8rem"
+                    >Click para gestionar &rarr;</small
+                  >
+                </div>
+                <i class="bi bi-briefcase-fill metric-icon text-white"></i>
               </div>
-              <i class="bi bi-briefcase-fill metric-icon"></i>
             </div>
-          </div>
+          </a>
         </div>
+
         <div class="col-md-4">
-          <div class="card metric-card bg-gradient-success p-3 shadow-sm">
+          <div class="card metric-card bg-gradient-success p-3 shadow-sm h-100">
             <div class="d-flex justify-content-between align-items-center">
               <div>
                 <h6 class="text-uppercase mb-1">Postulaciones</h6>
@@ -147,8 +158,11 @@
                 </div>
                 <div class="col-6">
                   <select id="stdDept" class="form-select">
-                    <option>Ingeniería</option>
-                    <option>Medicina</option>
+                    <option>Ingeniería en Sistemas</option>
+                    <option>Ingeniería Civil</option>
+                    <option>Computación</option>
+                    <option>Diseño Industrial</option>
+                    <option>Mecánica</option>
                   </select>
                 </div>
               </div>
