@@ -113,6 +113,14 @@ def dashboard():
     container_id = socket.gethostname()
     return render_template('index.html', user=current_user, node_id=container_id)
 
+@app.route('/admin/opportunities-view')
+@login_required
+def admin_opportunities_view():
+    """Renderiza la nueva página de gestión de ofertas (CRUD)"""
+    if current_user.role != 'admin':
+        return redirect(url_for('dashboard'))
+    return render_template('admin_opportunities.html', user=current_user)
+
 # --- API: GESTIÓN DE ESTUDIANTES (SQL) ---
 
 @app.route('/api/students', methods=['POST'])
@@ -156,6 +164,41 @@ def handle_opportunities():
         else:
             opportunities = opp_dao.get_all()
             return jsonify(opportunities), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        factory.close()
+
+@app.route('/api/opportunities/<id>', methods=['PUT', 'DELETE'])
+@login_required
+def modify_opportunity(id):
+    """
+    Ruta faltante: Permite Editar (PUT) y Eliminar (DELETE) una oferta específica por ID.
+    """
+    if current_user.role != 'admin':
+        return jsonify({"error": "No autorizado"}), 403
+
+    factory = UCEFactory()
+    try:
+        opp_dao = factory.get_opportunity_dao()
+
+        # --- DELETE ---
+        if request.method == 'DELETE':
+            success = opp_dao.delete(id)
+            if success:
+                return jsonify({"message": "Oferta eliminada correctamente"}), 200
+            else:
+                return jsonify({"error": "No se pudo eliminar (ID no encontrado o error BD)"}), 404
+
+        # --- PUT (Update) ---
+        elif request.method == 'PUT':
+            data = request.json
+            success = opp_dao.update(id, data)
+            if success:
+                return jsonify({"message": "Oferta actualizada correctamente"}), 200
+            else:
+                return jsonify({"error": "No se pudo actualizar (ID no encontrado o error BD)"}), 404
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión de Ofertas - UCE</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+    />
+  </head>
+  <body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container">
+        <a class="navbar-brand" href="/dashboard"
+          ><i class="bi bi-arrow-left"></i> Volver al Dashboard</a
+        >
+        <span class="text-white">Gestión de Oportunidades</span>
+      </div>
+    </nav>
+
+    <div class="container mt-5">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📋 Listado de Ofertas</h2>
+        <button class="btn btn-success" onclick="location.href = '/dashboard'">
+          <i class="bi bi-plus-lg"></i> Crear Nueva (En Dashboard)
+        </button>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 align-middle">
+              <thead class="table-dark">
+                <tr>
+                  <th>Título</th>
+                  <th>Empresa</th>
+                  <th>Requisitos</th>
+                  <th class="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="opp-table-body">
+                <tr>
+                  <td colspan="4" class="text-center p-4">
+                    Cargando ofertas...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="editModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title">Editar Oferta</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="edit-id" />
+            <div class="mb-3">
+              <label class="form-label">Título</label>
+              <input type="text" id="edit-title" class="form-control" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Empresa</label>
+              <input type="text" id="edit-company" class="form-control" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Requisitos (JSON)</label>
+              <textarea id="edit-reqs" class="form-control" rows="3"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="saveChanges()"
+            >
+              Guardar Cambios
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", loadOpportunities);
+
+      async function loadOpportunities() {
+        const tbody = document.getElementById("opp-table-body");
+        try {
+          const res = await fetch("/api/opportunities");
+
+          // Si el servidor falla (500), mostramos error
+          if (!res.ok) throw new Error("Error en servidor");
+
+          const data = await res.json();
+
+          tbody.innerHTML = "";
+          if (!Array.isArray(data) || data.length === 0) {
+            tbody.innerHTML =
+              '<tr><td colspan="4" class="text-center p-4">No hay ofertas registradas.</td></tr>';
+            return;
+          }
+
+          data.forEach((o) => {
+            // 1. Detectar tarjeta de mantenimiento
+            if (o.id === "maintenance") {
+              tbody.innerHTML =
+                '<tr><td colspan="4" class="text-center text-danger fw-bold bg-danger-subtle">⚠️ Sistema en Mantenimiento (BD no disponible)</td></tr>';
+              return;
+            }
+
+            // 2. CORRECCIÓN CLAVE: Buscar 'requirements' O 'metadata'
+            // Esto evita el crash si uno de los dos falta.
+            const rawReqs = o.requirements || o.metadata || {};
+
+            // Convertir a texto de forma segura
+            let reqString = "{}";
+            try {
+              reqString = JSON.stringify(rawReqs);
+            } catch (e) {}
+
+            // Escapar comillas para evitar romper el HTML del onclick
+            const safeReqs = reqString.replace(/"/g, "&quot;");
+            const safeTitle = (o.title || "").replace(/"/g, "&quot;");
+            const safeCompany = (o.company_name || "").replace(/"/g, "&quot;");
+
+            tbody.innerHTML += `
+                        <tr>
+                            <td class="fw-bold">${o.title}</td>
+                            <td>${o.company_name}</td>
+                            <td><small class="text-muted">${reqString.substring(0, 50)}...</small></td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary me-1" 
+                                    onclick='openEditModal("${o.id}", "${safeTitle}", "${safeCompany}", ${safeReqs})'>
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteOpp('${o.id}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+          });
+        } catch (e) {
+          console.error(e);
+          tbody.innerHTML =
+            '<tr><td colspan="4" class="text-center text-danger">Error cargando datos. Ver consola.</td></tr>';
+        }
+      }
+
+      async function deleteOpp(id) {
+        if (!confirm("¿Estás seguro de eliminar esta oferta permanentemente?"))
+          return;
+        try {
+          const res = await fetch(`/api/opportunities/${id}`, {
+            method: "DELETE",
+          });
+          if (res.ok) loadOpportunities();
+          else alert("Error al eliminar");
+        } catch (e) {
+          alert("Error de conexión");
+        }
+      }
+
+      const editModal = new bootstrap.Modal(
+        document.getElementById("editModal"),
+      );
+
+      // Función corregida para recibir parámetros individuales y evitar problemas de parseo
+      function openEditModal(id, title, company, reqsObj) {
+        document.getElementById("edit-id").value = id;
+        document.getElementById("edit-title").value = title;
+        document.getElementById("edit-company").value = company;
+        // Formateamos el JSON bonito para que sea fácil editar
+        document.getElementById("edit-reqs").value = JSON.stringify(
+          reqsObj,
+          null,
+          2,
+        );
+        editModal.show();
+      }
+
+      async function saveChanges() {
+        const id = document.getElementById("edit-id").value;
+        let reqs;
+        try {
+          reqs = JSON.parse(document.getElementById("edit-reqs").value);
+        } catch {
+          return alert(
+            "El JSON de requisitos no es válido (revisa comillas y llaves)",
+          );
+        }
+
+        const body = {
+          title: document.getElementById("edit-title").value,
+          company_name: document.getElementById("edit-company").value,
+          requirements: reqs,
+        };
+
+        try {
+          const res = await fetch(`/api/opportunities/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+
+          if (res.ok) {
+            editModal.hide();
+            loadOpportunities();
+          } else {
+            alert("No se pudo actualizar");
+          }
+        } catch (e) {
+          alert("Error de conexión");
+        }
+      }
+    </script>
+  </body>
+</html>
